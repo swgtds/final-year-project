@@ -34,6 +34,11 @@ yarn install
 
 ---
 
+## Add your gemini api key in a `.env` file in root of the project:
+```bash
+GOOGLE_AI_API_KEY=<Your_Key>
+```
+
 ## ▶️ Run the Development Server
 
 ```bash
