@@ -1,32 +1,45 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
-import { identifyThreat, ThreatIdentificationInput, ThreatIdentificationOutput } from '@/ai/flows/identify-threats';
+import {
+  identifyThreat,
+  ThreatIdentificationInput,
+  ThreatIdentificationOutput,
+} from '@/ai/flows/identify-threats';
 import type { Alert } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { ScanFace, UserCheck, UserX, Loader2, Video, Camera, UploadCloud, AlertCircle } from 'lucide-react';
-import { Alert as ShadcnAlert, AlertTitle, AlertDescription } from '@/components/ui/alert'; 
+import {
+  ScanFace,
+  UserCheck,
+  UserX,
+  Loader2,
+  Video,
+  UploadCloud,
+  AlertCircle,
+  Square,
+} from 'lucide-react';
+import { Alert as ShadcnAlert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 
-const fileToDataUri = (file: File): Promise<string> => {
-  return new Promise((resolve, reject) => {
+const fileToDataUri = (file: File): Promise<string> =>
+  new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result as string);
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
-};
 
 export function ThreatIdentificationCard({ addAlert }: { addAlert: (alert: Alert) => void }) {
   const [faceScanFile, setFaceScanFile] = useState<File | null>(null);
-  const [scanPreview, setScanPreview] = useState<string | null>(null);
+  const [scanPreview, setScanPreview] = useState<string | null>(null); // upload preview only
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<ThreatIdentificationOutput | null>(null);
   const [error, setError] = useState<string | null>(null);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -34,39 +47,54 @@ export function ThreatIdentificationCard({ addAlert }: { addAlert: (alert: Alert
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
   const [isWebcamActive, setIsWebcamActive] = useState(false);
 
+  // Live detection state
+  const [isLiveDetecting, setIsLiveDetecting] = useState(false);
+  const [isLiveProcessing, setIsLiveProcessing] = useState(false);
+  const liveTimerRef = useRef<number | null>(null);
+
   const { toast } = useToast();
 
+  // Start/stop webcam stream on toggle
   useEffect(() => {
     let streamInstance: MediaStream | null = null;
-    if (isWebcamActive) {
-      const getCameraPermission = async () => {
-        try {
-          const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-          streamInstance = stream;
-          setHasCameraPermission(true);
-          if (videoRef.current) {
-            videoRef.current.srcObject = stream;
-          }
-        } catch (err) {
-          console.error('Error accessing camera:', err);
-          setHasCameraPermission(false);
-          setIsWebcamActive(false); 
-          toast({
-            variant: 'destructive',
-            title: 'Camera Access Denied',
-            description: 'Please enable camera permissions in your browser settings to use this feature.',
-          });
+
+    const startWebcam = async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        streamInstance = stream;
+        setHasCameraPermission(true);
+        if (videoRef.current) {
+          (videoRef.current as HTMLVideoElement).srcObject = stream;
         }
-      };
-      getCameraPermission();
-    }
-    
+      } catch (err) {
+        console.error('Error accessing camera:', err);
+        setHasCameraPermission(false);
+        setIsWebcamActive(false);
+        toast({
+          variant: 'destructive',
+          title: 'Camera Access Denied',
+          description: 'Please enable camera permissions in your browser settings to use this feature.',
+        });
+      }
+    };
+
+    if (isWebcamActive) startWebcam();
+
     return () => {
+      // stop live loop
+      if (liveTimerRef.current) {
+        window.clearInterval(liveTimerRef.current);
+        liveTimerRef.current = null;
+      }
+      setIsLiveDetecting(false);
+      setIsLiveProcessing(false);
+
+      // stop stream
       if (streamInstance) {
-        streamInstance.getTracks().forEach(track => track.stop());
+        streamInstance.getTracks().forEach((track) => track.stop());
       }
       if (videoRef.current) {
-        videoRef.current.srcObject = null;
+        (videoRef.current as HTMLVideoElement).srcObject = null;
       }
     };
   }, [isWebcamActive, toast]);
@@ -85,42 +113,41 @@ export function ThreatIdentificationCard({ addAlert }: { addAlert: (alert: Alert
     }
   };
 
-  const processImageForAnalysis = async (imageDataUri: string) => {
+  // Shared identify + alert logic
+  const runIdentify = async (imageDataUri: string, source: 'upload' | 'live') => {
+    const input: ThreatIdentificationInput = { photoDataUri: imageDataUri };
+    const output = await identifyThreat(input);
+    setResult(output);
+
+    toast({
+      title: source === 'live' ? 'Live Threat Identification' : 'Threat Identification Complete',
+      description: `${output.isThreat ? `Threat: ${output.name || 'Unknown'}` : 'No immediate threat'} • Confidence: ${(
+        (output.confidenceScore || 0) * 100
+      ).toFixed(0)}%`,
+      variant: output.isThreat ? 'destructive' : 'default',
+    });
+
+    // Alerts
+    addAlert({
+      id: `ti-${new Date().toISOString()}`,
+      timestamp: new Date().toISOString(),
+      type: 'Threat Identification',
+      severity: output.isThreat ? 'Critical' : 'Low',
+      title: output.isThreat ? `Potential Threat: ${output.name || 'Unknown'}` : `Individual Cleared: ${output.name || 'Unknown'}`,
+      description: `${output.reason || (output.isThreat ? 'Matches person of interest criteria.' : 'No threat indicators found.')} Confidence: ${(
+        (output.confidenceScore || 0) * 100
+      ).toFixed(0)}%`,
+      data: output,
+    });
+  };
+
+  const processImageForAnalysis = async (imageDataUri: string, source: 'upload' | 'live' = 'upload') => {
     setIsLoading(true);
     setError(null);
     setResult(null);
 
     try {
-      const input: ThreatIdentificationInput = { photoDataUri: imageDataUri };
-      const output = await identifyThreat(input);
-      setResult(output);
-      toast({ 
-        title: 'Threat Identification Complete', 
-        description: `${output.isThreat ? `Threat Identified: ${output.name || 'Unknown'}` : 'No immediate threat identified.'} Confidence: ${((output.confidenceScore || 0) * 100).toFixed(0)}%`,
-        variant: output.isThreat ? 'destructive' : 'default',
-      });
-      
-      if (output.isThreat) {
-        addAlert({
-          id: `ti-${new Date().toISOString()}`,
-          timestamp: new Date().toISOString(),
-          type: 'Threat Identification',
-          severity: 'Critical', // Default to critical, could be adjusted by specific reasons
-          title: `Potential Threat: ${output.name || 'Unknown'}`,
-          description: `${output.reason || 'Matches person of interest criteria.'} Confidence: ${((output.confidenceScore || 0) * 100).toFixed(0)}%`,
-          data: output,
-        });
-      } else {
-         addAlert({
-          id: `ti-${new Date().toISOString()}`,
-          timestamp: new Date().toISOString(),
-          type: 'Threat Identification',
-          severity: 'Low',
-          title: `Individual Cleared: ${output.name || 'Unknown'}`,
-          description: `${output.reason || 'No threat indicators found.'} Confidence: ${((output.confidenceScore || 0) * 100).toFixed(0)}%`,
-          data: output,
-        });
-      }
+      await runIdentify(imageDataUri, source);
     } catch (e: any) {
       setError(e.message || 'An error occurred during threat identification.');
       toast({ title: 'Threat Identification Failed', description: e.message || 'Unknown error', variant: 'destructive' });
@@ -137,59 +164,76 @@ export function ThreatIdentificationCard({ addAlert }: { addAlert: (alert: Alert
       return;
     }
     const photoDataUri = await fileToDataUri(faceScanFile);
-    await processImageForAnalysis(photoDataUri);
+    await processImageForAnalysis(photoDataUri, 'upload');
   };
 
-  const handleCaptureFromWebcam = async () => {
-    if (!videoRef.current || !canvasRef.current || !hasCameraPermission) {
-      toast({ title: 'Error', description: 'Webcam not ready or permission denied.', variant: 'destructive' });
-      return;
-    }
-    const video = videoRef.current;
+  // Live loop (no capture)
+  const startLiveDetection = () => {
+    if (!videoRef.current || !canvasRef.current) return;
+    if (isLiveDetecting) return;
+    setIsLiveDetecting(true);
+
     const canvas = canvasRef.current;
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    const context = canvas.getContext('2d');
-    if (context) {
-      context.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const photoDataUri = canvas.toDataURL('image/jpeg');
-      setScanPreview(photoDataUri); 
-      await processImageForAnalysis(photoDataUri);
-    } else {
-       toast({ title: 'Error', description: 'Could not capture image from webcam.', variant: 'destructive' });
+    const ctx = canvas.getContext('2d');
+
+    const tick = async () => {
+      if (isLiveProcessing) return; // throttle concurrent calls
+      const video = videoRef.current!;
+      if (!ctx || video.readyState < 2) return;
+
+      canvas.width = video.videoWidth || 640;
+      canvas.height = video.videoHeight || 360;
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const dataUri = canvas.toDataURL('image/jpeg');
+
+      try {
+        setIsLiveProcessing(true);
+        await runIdentify(dataUri, 'live');
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setIsLiveProcessing(false);
+      }
+    };
+
+    // Run every ~1.8s
+    liveTimerRef.current = window.setInterval(tick, 1800);
+  };
+
+  const stopLiveDetection = () => {
+    if (liveTimerRef.current) {
+      window.clearInterval(liveTimerRef.current);
+      liveTimerRef.current = null;
     }
+    setIsLiveDetecting(false);
   };
 
   const toggleWebcamMode = () => {
-    setIsWebcamActive(!isWebcamActive);
-    setScanPreview(null);
-    setFaceScanFile(null);
+    setIsWebcamActive((v) => !v);
     setResult(null);
     setError(null);
-    setHasCameraPermission(null); // Reset permission status on mode toggle
-    if (fileInputRef.current) {
-        fileInputRef.current.value = ""; 
-    }
+    setHasCameraPermission(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   return (
     <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
       <CardHeader>
-        <div className="flex items-center space-x-2">
-          <ScanFace className="h-6 w-6 text-primary" />
-          <CardTitle className="font-headline">AI Threat Identification</CardTitle>
-        </div>
-        <CardDescription>Cross-reference facial scans against a known persons of interest database.</CardDescription>
-      </CardHeader>
-      
-      <CardContent className="space-y-6">
-        <div className="flex justify-end">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <ScanFace className="h-6 w-6 text-primary" />
+            <CardTitle className="font-headline">AI Threat Identification</CardTitle>
+          </div>
           <Button variant="outline" size="sm" onClick={toggleWebcamMode}>
             {isWebcamActive ? <UploadCloud className="mr-2 h-4 w-4" /> : <Video className="mr-2 h-4 w-4" />}
             {isWebcamActive ? 'Use File Upload' : 'Use Webcam'}
           </Button>
         </div>
+        <CardDescription>Cross-reference facial scans against a known persons of interest database.</CardDescription>
+      </CardHeader>
 
+      <CardContent className="space-y-6">
+        {/* ================= Upload Mode ================= */}
         {!isWebcamActive && (
           <form onSubmit={handleFileUploadSubmit} className="space-y-6">
             <div className="space-y-2">
@@ -203,11 +247,13 @@ export function ThreatIdentificationCard({ addAlert }: { addAlert: (alert: Alert
                 className="file:text-sm file:font-medium file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
               />
             </div>
-             {scanPreview && (
+
+            {scanPreview && (
               <div className="mt-4 relative w-full h-48 rounded-md overflow-hidden border border-border">
-                <Image src={scanPreview} alt="Face scan preview" layout="fill" objectFit="cover" data-ai-hint="face portrait" />
+                <Image src={scanPreview} alt="Face scan preview" fill style={{ objectFit: 'cover' }} data-ai-hint="face portrait" />
               </div>
             )}
+
             <Button type="submit" disabled={isLoading || !faceScanFile} className="w-full">
               {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ScanFace className="mr-2 h-4 w-4" />}
               {isLoading ? 'Analyzing File...' : 'Analyze Uploaded Image'}
@@ -215,36 +261,44 @@ export function ThreatIdentificationCard({ addAlert }: { addAlert: (alert: Alert
           </form>
         )}
 
+        {/* ================= Webcam / Live Mode ================= */}
         {isWebcamActive && (
           <div className="space-y-4">
             <div className="relative w-full aspect-video bg-muted rounded-md overflow-hidden border border-border">
               <video ref={videoRef} className="w-full h-full object-cover" autoPlay playsInline muted />
-              <canvas ref={canvasRef} className="hidden"></canvas>
-              {hasCameraPermission === null && !videoRef.current?.srcObject && ( // Loading state for camera permission
+              <canvas ref={canvasRef} className="hidden" />
+              {hasCameraPermission === null && !videoRef.current?.srcObject && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black/50">
                   <Loader2 className="h-8 w-8 text-white animate-spin" />
                   <p className="text-white ml-2">Requesting camera...</p>
                 </div>
               )}
             </div>
-             {scanPreview && !isLoading && ( 
-              <div className="mt-4 relative w-full h-48 rounded-md overflow-hidden border border-border">
-                <Image src={scanPreview} alt="Webcam capture preview" layout="fill" objectFit="cover" data-ai-hint="face portrait" />
-              </div>
+
+            {hasCameraPermission === false && (
+              <ShadcnAlert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Camera Access Required</AlertTitle>
+                <AlertDescription>
+                  Camera access was denied. Please enable it in your browser settings and refresh the page or try toggling webcam mode again.
+                </AlertDescription>
+              </ShadcnAlert>
             )}
-            {hasCameraPermission === false && ( // Explicit permission denied message
-                <ShadcnAlert variant="destructive">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertTitle>Camera Access Required</AlertTitle>
-                  <AlertDescription>
-                    Camera access was denied. Please enable it in your browser settings and refresh the page or try toggling webcam mode again.
-                  </AlertDescription>
-                </ShadcnAlert>
+
+            {/* Live detection button — styled like your LPR example */}
+            <div className="flex gap-2">
+              {!isLiveDetecting ? (
+                <Button type="button" onClick={startLiveDetection} disabled={!hasCameraPermission} className="w-full">
+                  {isLiveProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Video className="mr-2 h-4 w-4" />}
+                  {isLiveProcessing ? 'Starting…' : 'Start Live Detection'}
+                </Button>
+              ) : (
+                <Button type="button" variant="outline" onClick={stopLiveDetection} className="w-full">
+                  <Square className="mr-2 h-4 w-4" />
+                  Stop Live Detection
+                </Button>
               )}
-            <Button onClick={handleCaptureFromWebcam} disabled={isLoading || !hasCameraPermission} className="w-full">
-              {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Camera className="mr-2 h-4 w-4" />}
-              {isLoading ? 'Analyzing Webcam...' : 'Capture & Analyze'}
-            </Button>
+            </div>
           </div>
         )}
       </CardContent>
@@ -252,21 +306,35 @@ export function ThreatIdentificationCard({ addAlert }: { addAlert: (alert: Alert
       <CardFooter className="flex flex-col items-stretch space-y-4 pt-0">
         {error && <p className="text-sm text-destructive text-center">{error}</p>}
         {result && (
-          <div className={`mt-4 p-4 border rounded-md ${result.isThreat ? 'border-destructive bg-destructive/10' : 'border-green-500 bg-green-500/10'}`}>
+          <div
+            className={`mt-4 p-4 border rounded-md ${
+              result.isThreat ? 'border-destructive bg-destructive/10' : 'border-green-500 bg-green-500/10'
+            }`}
+          >
             <div className="flex items-center space-x-2">
               {result.isThreat ? <UserX className="h-6 w-6 text-destructive" /> : <UserCheck className="h-6 w-6 text-green-500" />}
               <h4 className={`font-semibold text-lg ${result.isThreat ? 'text-destructive' : 'text-green-500'}`}>
                 {result.isThreat ? 'Potential Threat Identified' : 'No Threat Identified'}
               </h4>
             </div>
-            {result.name && <p className="text-sm"><strong className="text-foreground">Name:</strong> {result.name}</p>}
+            {result.name && (
+              <p className="text-sm">
+                <strong className="text-foreground">Name:</strong> {result.name}
+              </p>
+            )}
             {result.isThreat && result.reason && (
-              <p className="text-sm"><strong className="text-foreground">Reason:</strong> {result.reason}</p>
+              <p className="text-sm">
+                <strong className="text-foreground">Reason:</strong> {result.reason}
+              </p>
             )}
             {!result.isThreat && result.reason && (
-              <p className="text-sm"><strong className="text-foreground">Assessment:</strong> {result.reason}</p>
+              <p className="text-sm">
+                <strong className="text-foreground">Assessment:</strong> {result.reason}
+              </p>
             )}
-             <p className="text-sm"><strong className="text-foreground">Confidence:</strong> {((result.confidenceScore || 0) * 100).toFixed(0)}%</p>
+            <p className="text-sm">
+              <strong className="text-foreground">Confidence:</strong> {((result.confidenceScore || 0) * 100).toFixed(0)}%
+            </p>
           </div>
         )}
       </CardFooter>
