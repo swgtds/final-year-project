@@ -1,0 +1,19 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+
+:root {
+--bw-bg: #e6e6e6;
+--bw-dusty: #b78a8a;
+--bw-pink: #f7cfcf;
+--bw-card: #d3bcbc;
+}
+
+
+html, body, #root { height: 100%; }
+body { background-color: var(--bw-bg); }
+
+
+/* // small helper classes */
+.card-shadow { box-shadow: 0 2px 6px rgba(0,0,0,0.08); }
