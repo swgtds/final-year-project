@@ -8,7 +8,7 @@ import Papa from 'papaparse';
 async function extractPlateFromImage(base64Image) {
   try {
     const response = await fetch(
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=AIzaSyBFb_TXPoV07f7EiNXW-u_PNDjdFPVOpYY",
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=<GOOGLE_API_KEY>",
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
