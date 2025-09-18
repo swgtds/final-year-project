@@ -17,7 +17,7 @@ const RecognizeLicensePlateInputSchema = z.object({
       "A photo of a vehicle's license plate, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."
     ),
 });
-export type RecognizeLicensePlateInput = z.infer<typeof RecognizeLicensePlateInputSchema>;
+/*export type RecognizeLicensePlateInput = z.infer<typeof RecognizeLicensePlateInputSchema>;
 
 const RecognizeLicensePlateOutputSchema = z.object({
   plateNumber: z.string().describe('The extracted license plate number. Should be as accurate as possible.'),
@@ -26,7 +26,16 @@ const RecognizeLicensePlateOutputSchema = z.object({
   isOfInterest: z.boolean().describe('Whether the license plate or vehicle is on a watchlist or considered of interest based on tool lookup.'),
   reasonForInterest: z.string().optional().describe('Reason if the plate/vehicle is of interest, primarily from the watchlist tool.'),
   confidenceScore: z.number().min(0).max(1).describe('Confidence score for the license plate *number extraction* (0 to 1).'),
+}); */
+const RecognizeLicensePlateOutputSchema = z.object({
+  plateNumber: z.string().describe('The extracted license plate number. Should be as accurate as possible.'),
+  vehicleDetails: z.string().default("Unknown").describe('Brief details about the vehicle if identifiable from the image (e.g., make, model, color). This should be supplemented by watchlist info if available and relevant.'),
+  countryOfOrigin: z.string().default("Unknown").describe('The suspected country of origin of the license plate based on its format or context clues in the image.'),
+  isOfInterest: z.boolean().describe('Whether the license plate or vehicle is on a watchlist or considered of interest based on tool lookup.'),
+  reasonForInterest: z.string().default("").describe('Reason if the plate/vehicle is of interest, primarily from the watchlist tool.'),
+  confidenceScore: z.number().min(0).max(1).default(0.7).describe('Confidence score for the license plate *number extraction* (0 to 1).'),
 });
+
 export type RecognizeLicensePlateOutput = z.infer<typeof RecognizeLicensePlateOutputSchema>;
 
 
@@ -100,7 +109,7 @@ Ensure your response strictly adheres to the JSON schema for 'RecognizeLicensePl
 `,
 });
 
-const recognizeLicensePlateFlow = ai.defineFlow(
+/* const recognizeLicensePlateFlow = ai.defineFlow(
   {
     name: 'recognizeLicensePlateFlow',
     inputSchema: RecognizeLicensePlateInputSchema,
@@ -116,5 +125,33 @@ const recognizeLicensePlateFlow = ai.defineFlow(
         output.confidenceScore = 0.7; 
     }
     return output;
+  }
+); */
+
+const recognizeLicensePlateFlow = ai.defineFlow(
+  {
+    name: 'recognizeLicensePlateFlow',
+    inputSchema: RecognizeLicensePlateInputSchema,
+    outputSchema: RecognizeLicensePlateOutputSchema,
+  },
+  async input => {
+    const { output } = await prompt(input);
+
+    if (!output) {
+      throw new Error('AI failed to provide an output for license plate recognition.');
+    }
+
+    const toolOutput = await checkLicensePlateWatchlistTool({
+      plateNumber: output.plateNumber ?? "",
+    });
+
+    return {
+      plateNumber: output.plateNumber ?? "",
+      vehicleDetails: toolOutput.associatedVehicleDetails ?? output.vehicleDetails ?? "Unknown",
+      countryOfOrigin: output.countryOfOrigin ?? "Unknown",
+      isOfInterest: Boolean(toolOutput.isOnWatchlist),
+      reasonForInterest: toolOutput.reason ?? "", // must be string
+      confidenceScore: typeof output.confidenceScore === "number" ? output.confidenceScore : 0.7,
+    };
   }
 );
