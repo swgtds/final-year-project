@@ -237,7 +237,7 @@ export function ThreatIdentificationCard({ addAlert }: { addAlert: (alert: Alert
         {!isWebcamActive && (
           <form onSubmit={handleFileUploadSubmit} className="space-y-6">
             <div className="space-y-2">
-              <Label htmlFor="face-scan-file">Facial Scan File</Label>
+              <Label htmlFor="face-scan-file">Scan here</Label>
               <Input
                 id="face-scan-file"
                 type="file"
