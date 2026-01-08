@@ -222,14 +222,14 @@ export function ThreatIdentificationCard({ addAlert }: { addAlert: (alert: Alert
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <ScanFace className="h-6 w-6 text-primary" />
-            <CardTitle className="font-headline">AI Threat Identification</CardTitle>
+            <CardTitle className="font-headline">AI Intruder Detection</CardTitle>
           </div>
           <Button variant="outline" size="sm" onClick={toggleWebcamMode}>
             {isWebcamActive ? <UploadCloud className="mr-2 h-4 w-4" /> : <Video className="mr-2 h-4 w-4" />}
             {isWebcamActive ? 'Use File Upload' : 'Use Webcam'}
           </Button>
         </div>
-        <CardDescription>Cross-reference facial scans against a known persons of interest database.</CardDescription>
+        <CardDescription>Cross-reference intruder detection for army personnel</CardDescription>
       </CardHeader>
 
       <CardContent className="space-y-6">
