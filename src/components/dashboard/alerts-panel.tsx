@@ -99,7 +99,7 @@ export function AlertsPanel({ alerts }: AlertsPanelProps) {
           <BellRing className="h-6 w-6 text-accent" />
           <CardTitle className="font-headline text-accent">Real-Time Alerts</CardTitle>
         </div>
-        <CardDescription>Counts above; use the navbar to switch severity.</CardDescription>
+        <CardDescription></CardDescription>
       </CardHeader>
 
       {/* Counters in 2 columns always */}
