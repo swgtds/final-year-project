@@ -24,6 +24,21 @@ interface LicensePlateRecognitionCardProps {
 const normalizePlate = (plate: string | null | undefined): string =>
   (plate || "").replace(/\s+/g, "").toUpperCase();
 
+const SUSPICIOUS_PLATES_STORAGE_KEY = 'border-watch-suspicious-plates';
+
+function readStoredSuspiciousPlates(): string[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(SUSPICIOUS_PLATES_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed) || !parsed.every((x) => typeof x === 'string')) return [];
+    return parsed.map(normalizePlate);
+  } catch {
+    return [];
+  }
+}
+
 const fileToDataUri = (file: File): Promise<string> =>
   new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -40,6 +55,7 @@ export function LicensePlateRecognitionCard({ addAlert }: LicensePlateRecognitio
   const [error, setError] = useState<string | null>(null);
 
   const [suspiciousPlates, setSuspiciousPlates] = useState<string[]>([]);
+  const [suspiciousPlatesReady, setSuspiciousPlatesReady] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newPlate, setNewPlate] = useState('');
   const [editIndex, setEditIndex] = useState<number | null>(null);
@@ -54,6 +70,20 @@ export function LicensePlateRecognitionCard({ addAlert }: LicensePlateRecognitio
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+
+  useEffect(() => {
+    setSuspiciousPlates(readStoredSuspiciousPlates());
+    setSuspiciousPlatesReady(true);
+  }, []);
+
+  useEffect(() => {
+    if (!suspiciousPlatesReady) return;
+    try {
+      localStorage.setItem(SUSPICIOUS_PLATES_STORAGE_KEY, JSON.stringify(suspiciousPlates));
+    } catch {
+      // ignore quota / private mode errors
+    }
+  }, [suspiciousPlates, suspiciousPlatesReady]);
 
   // Webcam start/stop
   useEffect(() => {
