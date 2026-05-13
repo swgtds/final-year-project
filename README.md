@@ -34,9 +34,22 @@ yarn install
 
 ---
 
-## Add your gemini api key in a `.env` file in root of the project:
+## Add your OpenRouter API key in a `.env` file in the project root:
+
+The app uses [OpenRouter](https://openrouter.ai/) with a **Gemma** model (OpenAI-compatible API). Create a key at OpenRouter, then set:
+
 ```bash
-GOOGLE_AI_API_KEY=<Your_Key>
+OPENROUTER_API_KEY=<your_openrouter_key>
+```
+
+Optional:
+
+```bash
+# Defaults to google/gemma-3-27b-it; use any OpenRouter model id (e.g. google/gemma-4-31b-it:free)
+OPENROUTER_MODEL=google/gemma-3-27b-it
+# Recommended by OpenRouter for rankings (your site or repo URL)
+OPENROUTER_HTTP_REFERER=https://github.com/your-org/your-repo
+OPENROUTER_APP_TITLE=Border Watch AI
 ```
 
 ## ▶️ Run the Development Server

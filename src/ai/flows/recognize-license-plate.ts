@@ -17,16 +17,10 @@ const RecognizeLicensePlateInputSchema = z.object({
       "A photo of a vehicle's license plate, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."
     ),
 });
-/*export type RecognizeLicensePlateInput = z.infer<typeof RecognizeLicensePlateInputSchema>;
+export type RecognizeLicensePlateInput = z.infer<
+  typeof RecognizeLicensePlateInputSchema
+>;
 
-const RecognizeLicensePlateOutputSchema = z.object({
-  plateNumber: z.string().describe('The extracted license plate number. Should be as accurate as possible.'),
-  vehicleDetails: z.string().optional().describe('Brief details about the vehicle if identifiable from the image (e.g., make, model, color). This should be supplemented by watchlist info if available and relevant.'),
-  countryOfOrigin: z.string().optional().describe('The suspected country of origin of the license plate based on its format or context clues in the image.'),
-  isOfInterest: z.boolean().describe('Whether the license plate or vehicle is on a watchlist or considered of interest based on tool lookup.'),
-  reasonForInterest: z.string().optional().describe('Reason if the plate/vehicle is of interest, primarily from the watchlist tool.'),
-  confidenceScore: z.number().min(0).max(1).describe('Confidence score for the license plate *number extraction* (0 to 1).'),
-}); */
 const RecognizeLicensePlateOutputSchema = z.object({
   plateNumber: z.string().describe('The extracted license plate number. Should be as accurate as possible.'),
   vehicleDetails: z.string().default("Unknown").describe('Brief details about the vehicle if identifiable from the image (e.g., make, model, color). This should be supplemented by watchlist info if available and relevant.'),
