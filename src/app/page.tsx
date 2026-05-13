@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import type { Alert } from '@/types';
 import { AppHeader } from '@/components/layout/app-header';
 import { ObjectDetectionCard } from '@/components/dashboard/object-detection-card';
-import { ThreatIdentificationCard } from '@/components/dashboard/threat-identification-card';
+import { IntruderDetectionCard } from '@/components/dashboard/intruder-detection-card';
 import { LicensePlateRecognitionCard } from '@/components/dashboard/license-plate-recognition-card';
 import { AlertsPanel } from '@/components/dashboard/alerts-panel';
 
@@ -32,9 +32,9 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Feature Cards Section */}
           <div className="lg:col-span-8 xl:col-span-9 space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <ObjectDetectionCard addAlert={addAlert} />
-              <ThreatIdentificationCard addAlert={addAlert} />
+              <IntruderDetectionCard addAlert={addAlert} />
               <LicensePlateRecognitionCard addAlert={addAlert} />
             </div>
             {/* Add more feature sections or components here if needed */}
