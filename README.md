@@ -45,8 +45,8 @@ OPENROUTER_API_KEY=<your_openrouter_key>
 Optional:
 
 ```bash
-# Defaults to google/gemma-3-27b-it; use any OpenRouter model id (e.g. google/gemma-4-31b-it:free)
-OPENROUTER_MODEL=google/gemma-3-27b-it
+# Defaults to google/gemma-4-26b-a4b-it; override with any OpenRouter model id if you prefer
+OPENROUTER_MODEL=google/gemma-4-26b-a4b-it
 # Recommended by OpenRouter for rankings (your site or repo URL)
 OPENROUTER_HTTP_REFERER=https://github.com/your-org/your-repo
 OPENROUTER_APP_TITLE=Border Watch AI

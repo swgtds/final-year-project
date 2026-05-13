@@ -1,9 +1,10 @@
 import { openAICompatible } from '@genkit-ai/compat-oai';
 import { genkit } from 'genkit';
 
-/** OpenRouter model id, e.g. google/gemma-3-27b-it or google/gemma-4-31b-it:free */
+/** OpenRouter model id. */
 const openRouterModelId =
   process.env.OPENROUTER_MODEL ?? 'google/gemma-3-27b-it';
+  // process.env.OPENROUTER_MODEL ?? 'google/gemma-4-26b-a4b-it';
 
 export const ai = genkit({
   plugins: [
