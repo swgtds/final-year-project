@@ -290,7 +290,7 @@ export function ObjectDetectionCard({ addAlert }: ObjectDetectionCardProps) {
             }}
           >
             <Video className="mr-2 h-4 w-4" />
-            {isWebcamActive ? 'Use Image Upload' : 'Use Webcam'}
+            {isWebcamActive ? 'Use Image Upload' : 'Live CCTV'}
           </Button>
         </div>
         <CardDescription>Scan vehicle interiors for weapons or contraband. Conditions auto-detected.</CardDescription>

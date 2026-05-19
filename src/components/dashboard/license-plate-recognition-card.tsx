@@ -278,7 +278,7 @@ export function LicensePlateRecognitionCard({ addAlert }: LicensePlateRecognitio
             }}
           >
             <Video className="mr-2 h-4 w-4" />
-            {isWebcamActive ? 'Use Image Upload' : 'Use Webcam'}
+            {isWebcamActive ? 'Use Image Upload' : 'Live CCTV'}
           </Button>
         </div>
         <CardDescription>Scan license plates via image upload or live webcam feed.</CardDescription>
